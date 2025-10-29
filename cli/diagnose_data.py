@@ -50,13 +50,22 @@ def diagnose_data_setup(data_dir: str = "/data", toml_path: str = "/data/starter
                 logger.info(f"   Datasets defined: {list(config['datasets'].keys())}")
                 for dataset_name, dataset_config in config['datasets'].items():
                     logger.info(f"\n   Dataset: {dataset_name}")
-                    logger.info(f"      path: {dataset_config.get('path', 'NOT SET')}")
-                    logger.info(f"      train_split: {dataset_config.get('train_split', 'NOT SET')}")
-                    logger.info(f"      val_split: {dataset_config.get('val_split', 'NOT SET')}")
-                    logger.info(f"      test_split: {dataset_config.get('test_split', 'NOT SET')}")
+
+                    # Handle both dict and string configs
+                    if isinstance(dataset_config, dict):
+                        logger.info(f"      path: {dataset_config.get('path', 'NOT SET')}")
+                        logger.info(f"      train_split: {dataset_config.get('train_split', 'NOT SET')}")
+                        logger.info(f"      val_split: {dataset_config.get('val_split', 'NOT SET')}")
+                        logger.info(f"      test_split: {dataset_config.get('test_split', 'NOT SET')}")
+                        data_path = dataset_config.get('path', '')
+                    elif isinstance(dataset_config, str):
+                        logger.info(f"      path (string): {dataset_config}")
+                        data_path = dataset_config
+                    else:
+                        logger.warning(f"      ⚠️ Unknown config type: {type(dataset_config)}")
+                        continue
 
                     # Check if files exist
-                    data_path = dataset_config.get('path', '')
                     if data_path:
                         full_path = os.path.join(data_dir, data_path)
                         if os.path.exists(full_path):
