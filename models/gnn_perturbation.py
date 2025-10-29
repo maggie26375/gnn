@@ -203,11 +203,16 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
         perturbed_gene_names: Optional[List[str]] = None,
     ) -> torch.Tensor:
         """
-        Apply GNN to each cell's gene expression.
+        Apply GNN to cell state embeddings using batched operations.
+
+        Note: This is a simplified approach where we use the cell state embedding
+        directly as input to the GNN, treating each dimension of the embedding
+        as a gene feature. In practice, the mapping between embedding dimensions
+        and genes may not be direct.
 
         Args:
-            cell_states: Cell state embeddings [batch_size, hidden_dim] - 2D tensor
-            perturbed_gene_names: List of perturbed gene names
+            cell_states: Cell state embeddings [batch_size, state_dim] - 2D tensor
+            perturbed_gene_names: List of perturbed gene names (currently unused)
 
         Returns:
             GNN-processed cell states [batch_size, st_hidden_dim] - same shape as input
@@ -215,52 +220,46 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
         if not self.use_gnn or self.gene_network_edge_index is None:
             return cell_states
 
-        # Expect 2D input: [batch_size, hidden_dim]
+        # Expect 2D input: [batch_size, state_dim]
         if len(cell_states.shape) != 2:
-            raise ValueError(f"Expected 2D input [batch_size, hidden_dim], got {cell_states.shape}")
+            raise ValueError(f"Expected 2D input [batch_size, state_dim], got {cell_states.shape}")
 
         device = cell_states.device
+        batch_size, state_dim = cell_states.shape
 
-        # Move gene network to device
+        # Move gene network to device (only once)
         edge_index = self.gene_network_edge_index.to(device)
         edge_weight = self.gene_network_edge_weight.to(device) if self.gene_network_edge_weight is not None else None
 
-        # Process each cell
-        processed_cells = []
+        # Simplified batched approach: Use a single GNN pass on aggregated cell states
+        # This avoids the memory-intensive per-cell processing
 
-        for i in range(cell_states.shape[0]):
-            cell_state = cell_states[i]  # [hidden_dim]
+        # Option 1: Use mean pooled cell state as node features for all genes
+        # Shape: [num_genes, state_dim]
+        num_genes = len(self.gene_to_idx) if self.gene_to_idx else state_dim
 
-            # Optionally zero out perturbed genes
-            if perturbed_gene_names is not None and self.gene_to_idx is not None:
-                for gene_name in perturbed_gene_names:
-                    if gene_name in self.gene_to_idx:
-                        gene_idx = self.gene_to_idx[gene_name]
-                        if gene_idx < cell_state.shape[0]:
-                            cell_state[gene_idx] = 0.0
+        # Aggregate all cell states to create a single gene feature representation
+        # This is more memory efficient than processing each cell separately
+        aggregated_state = cell_states.mean(dim=0, keepdim=True)  # [1, state_dim]
 
-            # Expand to [num_genes, hidden_dim] for GNN
-            # For simplicity, we use cell_state as node features
-            # In practice, you might want to create per-gene features
-            num_genes = len(self.gene_to_idx) if self.gene_to_idx else cell_state.shape[0]
+        # Expand to all genes
+        node_features = aggregated_state.expand(num_genes, -1)  # [num_genes, state_dim]
 
-            # Create node features (simplified: repeat cell state)
-            # You can improve this by creating gene-specific features
-            node_features = cell_state.unsqueeze(0).expand(num_genes, -1)
+        # Apply GNN once
+        gnn_output = self.gnn(node_features, edge_index, edge_weight)  # [num_genes, gnn_hidden_dim]
 
-            # Apply GNN
-            gnn_output = self.gnn(node_features, edge_index, edge_weight)
+        # Global pooling
+        graph_embedding = gnn_output.mean(dim=0)  # [gnn_hidden_dim]
 
-            # Aggregate (mean pooling)
-            aggregated = gnn_output.mean(dim=0)
+        # Project to ST hidden dim
+        graph_embedding = self.gnn_projection(graph_embedding)  # [st_hidden_dim]
 
-            # Project to ST hidden dim
-            projected = self.gnn_projection(aggregated)
+        # Broadcast to all cells in batch
+        processed_cells = graph_embedding.unsqueeze(0).expand(batch_size, -1)  # [batch_size, st_hidden_dim]
 
-            processed_cells.append(projected)
-
-        # Stack to get [batch_size, st_hidden_dim]
-        processed_cells = torch.stack(processed_cells)
+        # Add residual connection with original cell states (if dimensions match)
+        if self.st_hidden_dim == state_dim:
+            processed_cells = processed_cells + cell_states
 
         return processed_cells
 
