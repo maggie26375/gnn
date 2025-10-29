@@ -37,7 +37,7 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 
 class SE_ST_DataModule(LightningDataModule):
     """Data module for SE+ST training with Hydra configuration."""
-    
+
     def __init__(
         self,
         toml_config_path: str,
@@ -48,6 +48,8 @@ class SE_ST_DataModule(LightningDataModule):
         pert_col: str = "target_gene",
         cell_type_key: str = "cell_type",
         control_pert: str = "non-targeting",
+        val_split: float = 0.0,
+        test_split: float = 0.0,
         **kwargs
     ):
         super().__init__()
@@ -59,8 +61,10 @@ class SE_ST_DataModule(LightningDataModule):
         self.pert_col = pert_col
         self.cell_type_key = cell_type_key
         self.control_pert = control_pert
+        self.val_split = val_split
+        self.test_split = test_split
         self.kwargs = kwargs
-        
+
         # Datasets will be created in setup()
         self.train_dataset = None
         self.val_dataset = None
@@ -68,12 +72,15 @@ class SE_ST_DataModule(LightningDataModule):
         
     def setup(self, stage: str = None):
         """Setup data for training/validation."""
+        from torch.utils.data import Subset
+        import numpy as np
+
         logger.info(f"Setting up data from {self.toml_config_path}")
-        
+
         # Create train dataset
         if stage == "fit" or stage is None:
             logger.info("Creating training dataset...")
-            self.train_dataset = PerturbationDataset(
+            full_train_dataset = PerturbationDataset(
                 toml_config_path=self.toml_config_path,
                 perturbation_features_file=self.perturbation_features_file,
                 split="train",
@@ -82,24 +89,94 @@ class SE_ST_DataModule(LightningDataModule):
                 cell_type_key=self.cell_type_key,
                 control_pert=self.control_pert,
             )
-            logger.info(f"Training dataset created with {len(self.train_dataset)} samples")
-            
-            # Create validation dataset
-            logger.info("Creating validation dataset...")
-            self.val_dataset = PerturbationDataset(
-                toml_config_path=self.toml_config_path,
-                perturbation_features_file=self.perturbation_features_file,
-                split="val",
-                batch_col=self.batch_col,
-                pert_col=self.pert_col,
-                cell_type_key=self.cell_type_key,
-                control_pert=self.control_pert,
-            )
-            
-            # If no val data, use a subset of train data for validation
-            if len(self.val_dataset) == 0:
-                logger.warning("No validation data found, using test split for validation")
+            logger.info(f"Full training dataset loaded with {len(full_train_dataset)} samples")
+
+            # Auto-split if requested
+            if self.val_split > 0 or self.test_split > 0:
+                logger.info(f"Auto-splitting train data:")
+                logger.info(f"  Val split: {self.val_split:.1%}")
+                logger.info(f"  Test split: {self.test_split:.1%}")
+
+                # Calculate split sizes
+                total_size = len(full_train_dataset)
+                test_size = int(total_size * self.test_split)
+                val_size = int(total_size * self.val_split)
+                train_size = total_size - val_size - test_size
+
+                # Shuffle and split indices
+                indices = np.arange(total_size)
+                np.random.seed(42)  # For reproducibility
+                np.random.shuffle(indices)
+
+                train_indices = indices[:train_size]
+                val_indices = indices[train_size:train_size+val_size]
+                test_indices = indices[train_size+val_size:]
+
+                # Create subsets
+                self.train_dataset = Subset(full_train_dataset, train_indices)
+                self.val_dataset = Subset(full_train_dataset, val_indices)
+                if test_size > 0:
+                    self.test_dataset = Subset(full_train_dataset, test_indices)
+
+                logger.info(f"✅ Auto-split complete:")
+                logger.info(f"  Train: {len(self.train_dataset)} samples")
+                logger.info(f"  Val: {len(self.val_dataset)} samples")
+                if test_size > 0:
+                    logger.info(f"  Test: {len(self.test_dataset)} samples")
+            else:
+                # No auto-split, use TOML-defined splits
+                self.train_dataset = full_train_dataset
+
+                # Create validation dataset from TOML
+                logger.info("Creating validation dataset from TOML config...")
                 self.val_dataset = PerturbationDataset(
+                    toml_config_path=self.toml_config_path,
+                    perturbation_features_file=self.perturbation_features_file,
+                    split="val",
+                    batch_col=self.batch_col,
+                    pert_col=self.pert_col,
+                    cell_type_key=self.cell_type_key,
+                    control_pert=self.control_pert,
+                )
+
+                # If no val data in TOML, try test split
+                if len(self.val_dataset) == 0:
+                    logger.warning("No validation data in TOML, trying test split...")
+                    self.val_dataset = PerturbationDataset(
+                        toml_config_path=self.toml_config_path,
+                        perturbation_features_file=self.perturbation_features_file,
+                        split="test",
+                        batch_col=self.batch_col,
+                        pert_col=self.pert_col,
+                        cell_type_key=self.cell_type_key,
+                        control_pert=self.control_pert,
+                    )
+
+                    # Still no val data? Use 10% of train
+                    if len(self.val_dataset) == 0:
+                        logger.warning("No val/test data in TOML! Auto-splitting 10% from train for validation")
+                        total_size = len(self.train_dataset)
+                        val_size = int(total_size * 0.1)
+                        train_size = total_size - val_size
+
+                        indices = np.arange(total_size)
+                        np.random.seed(42)
+                        np.random.shuffle(indices)
+
+                        train_indices = indices[:train_size]
+                        val_indices = indices[train_size:]
+
+                        self.train_dataset = Subset(self.train_dataset, train_indices)
+                        self.val_dataset = Subset(full_train_dataset, val_indices)
+
+                logger.info(f"Training: {len(self.train_dataset)} samples")
+                logger.info(f"Validation: {len(self.val_dataset)} samples")
+
+        # Create test dataset
+        if stage == "test" or stage is None:
+            if self.test_dataset is None:  # Only if not already created by auto-split
+                logger.info("Creating test dataset from TOML config...")
+                self.test_dataset = PerturbationDataset(
                     toml_config_path=self.toml_config_path,
                     perturbation_features_file=self.perturbation_features_file,
                     split="test",
@@ -108,22 +185,7 @@ class SE_ST_DataModule(LightningDataModule):
                     cell_type_key=self.cell_type_key,
                     control_pert=self.control_pert,
                 )
-            
-            logger.info(f"Validation dataset created with {len(self.val_dataset)} samples")
-        
-        # Create test dataset
-        if stage == "test" or stage is None:
-            logger.info("Creating test dataset...")
-            self.test_dataset = PerturbationDataset(
-                toml_config_path=self.toml_config_path,
-                perturbation_features_file=self.perturbation_features_file,
-                split="test",
-                batch_col=self.batch_col,
-                pert_col=self.pert_col,
-                cell_type_key=self.cell_type_key,
-                control_pert=self.control_pert,
-            )
-            logger.info(f"Test dataset created with {len(self.test_dataset)} samples")
+                logger.info(f"Test dataset created with {len(self.test_dataset)} samples")
         
     def train_dataloader(self):
         """Return training dataloader."""

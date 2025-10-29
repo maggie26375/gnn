@@ -55,6 +55,10 @@ def main():
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--num_workers", type=int, default=4)
 
+    # Data split arguments (for auto-splitting train data into train/val/test)
+    parser.add_argument("--val_split", type=float, default=0.0, help="Fraction of train data to use for validation (0.0-1.0)")
+    parser.add_argument("--test_split", type=float, default=0.0, help="Fraction of train data to use for testing (0.0-1.0)")
+
     # SE model arguments
     parser.add_argument("--se_model_path", type=str, default="SE-600M")
     parser.add_argument("--se_checkpoint", type=str, default="SE-600M/se600m_epoch15.ckpt")
@@ -126,11 +130,21 @@ def main():
 
     # 4. Create data module
     logger.info("Creating data module...")
+
+    # Log split configuration
+    if args.val_split > 0 or args.test_split > 0:
+        logger.info(f"Auto-split enabled:")
+        logger.info(f"  - Validation split: {args.val_split:.1%}")
+        logger.info(f"  - Test split: {args.test_split:.1%}")
+        logger.info(f"  - Actual train: {1 - args.val_split - args.test_split:.1%}")
+
     datamodule = SE_ST_DataModule(
         toml_config_path=args.toml_config,
         perturbation_features_file=args.pert_features,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
+        val_split=args.val_split,
+        test_split=args.test_split,
     )
     logger.info("✅ Data module created")
 
