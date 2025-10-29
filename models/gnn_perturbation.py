@@ -283,19 +283,33 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
         print(f"  ctrl_cell_emb: {batch['ctrl_cell_emb'].shape}")
         print(f"  pert_emb: {batch['pert_emb'].shape}")
 
+        # Handle both 3D inputs - flatten to 2D for processing
+        # Save original shape to know if we need to reshape back
+        ctrl_original_shape = batch["ctrl_cell_emb"].shape
+        pert_original_shape = batch["pert_emb"].shape
+
+        # Flatten ctrl_cell_emb if 3D
+        if len(ctrl_original_shape) == 3:
+            # [B, S, gene_dim] → [B*S, gene_dim]
+            ctrl_cell_emb_2d = batch["ctrl_cell_emb"].reshape(-1, ctrl_original_shape[-1])
+        else:
+            ctrl_cell_emb_2d = batch["ctrl_cell_emb"]
+
+        # Flatten pert_emb if 3D
+        if len(pert_original_shape) == 3:
+            # [B, S, pert_dim] → [B*S, pert_dim]
+            pert_emb_2d = batch["pert_emb"].reshape(-1, pert_original_shape[-1])
+        else:
+            pert_emb_2d = batch["pert_emb"]
+
+        print(f"After flattening to 2D:")
+        print(f"  ctrl_cell_emb: {ctrl_cell_emb_2d.shape}")
+        print(f"  pert_emb: {pert_emb_2d.shape}")
+
         # 1. SE Encoder: genes → cell state
-        cell_states = self.encode_cells_to_state(
-            batch["ctrl_cell_emb"]
-        )  # Should be [B*S, hidden_dim]
+        cell_states = self.encode_cells_to_state(ctrl_cell_emb_2d)  # [B*S, state_dim]
 
         print(f"After SE encoding: {cell_states.shape}")
-
-        # If cell_states is 3D, flatten it to 2D for GNN processing
-        original_shape = cell_states.shape
-        if len(original_shape) == 3:
-            # [B, S, hidden_dim] → [B*S, hidden_dim]
-            cell_states = cell_states.reshape(-1, original_shape[-1])
-            print(f"Flattened 3D to 2D: {cell_states.shape}")
 
         # 2. GNN: Propagate through gene network
         if self.use_gnn:
@@ -304,9 +318,10 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
             print(f"After GNN processing: {cell_states.shape}")
 
         # 3. ST Model: Transformer + Decoder
-        # Create new batch with processed cell states
+        # Create new batch with processed cell states (keep as 2D)
         st_batch = batch.copy()
         st_batch["ctrl_cell_emb"] = cell_states
+        st_batch["pert_emb"] = pert_emb_2d  # Use flattened pert_emb
 
         print(f"Passing to ST model:")
         print(f"  ctrl_cell_emb: {st_batch['ctrl_cell_emb'].shape}")
