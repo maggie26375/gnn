@@ -206,24 +206,18 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
         Apply GNN to each cell's gene expression.
 
         Args:
-            cell_states: Cell state embeddings [batch_size, seq_len, hidden_dim] or [batch_size, hidden_dim]
+            cell_states: Cell state embeddings [batch_size, hidden_dim] - 2D tensor
             perturbed_gene_names: List of perturbed gene names
 
         Returns:
-            GNN-processed cell states [batch_size, seq_len, st_hidden_dim] or [batch_size, st_hidden_dim]
+            GNN-processed cell states [batch_size, st_hidden_dim] - same shape as input
         """
         if not self.use_gnn or self.gene_network_edge_index is None:
             return cell_states
 
-        # Handle both 2D and 3D inputs
-        original_shape = cell_states.shape
-        if len(original_shape) == 3:
-            # [batch, seq, hidden] -> [batch*seq, hidden]
-            batch_size, seq_len, hidden_dim = original_shape
-            cell_states = cell_states.reshape(-1, hidden_dim)
-        else:
-            batch_size = cell_states.shape[0]
-            seq_len = None
+        # Expect 2D input: [batch_size, hidden_dim]
+        if len(cell_states.shape) != 2:
+            raise ValueError(f"Expected 2D input [batch_size, hidden_dim], got {cell_states.shape}")
 
         device = cell_states.device
 
@@ -265,11 +259,8 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
 
             processed_cells.append(projected)
 
-        processed_cells = torch.stack(processed_cells)  # [batch*seq or batch, st_hidden_dim]
-
-        # Restore original shape if needed
-        if seq_len is not None:
-            processed_cells = processed_cells.reshape(batch_size, seq_len, -1)
+        # Stack to get [batch_size, st_hidden_dim]
+        processed_cells = torch.stack(processed_cells)
 
         return processed_cells
 
