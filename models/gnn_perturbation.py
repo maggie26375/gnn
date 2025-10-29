@@ -298,8 +298,11 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
             cell_states = self.apply_gnn_to_cells(cell_states, perturbed_genes)
 
         # 3. ST Model: Transformer + Decoder
-        pert_emb = batch["pert_emb"]
-        predictions = self.st_model(cell_states, pert_emb)
+        # Create new batch with processed cell states
+        st_batch = batch.copy()
+        st_batch["ctrl_cell_emb"] = cell_states
+
+        predictions = self.st_model.forward(st_batch, padded=padded)
 
         return predictions
 
