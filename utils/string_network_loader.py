@@ -68,8 +68,10 @@ class STRINGNetworkLoader:
         """
         if network_type == "physical":
             filename = f"{self.species}.protein.physical.links.{self.version}.txt.gz"
+            url_subdir = "protein.physical.links"
         else:
             filename = f"{self.species}.protein.links.{self.version}.txt.gz"
+            url_subdir = "protein.links"
 
         filepath = os.path.join(self.cache_dir, filename)
 
@@ -79,7 +81,7 @@ class STRINGNetworkLoader:
             return filepath
 
         # Download
-        url = f"{self.base_url}/protein.links.{self.version}/{filename}"
+        url = f"{self.base_url}/{url_subdir}.{self.version}/{filename}"
         logger.info(f"Downloading STRING network from {url}")
 
         # Disable SSL verification to avoid certificate issues
