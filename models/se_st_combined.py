@@ -264,13 +264,27 @@ class SE_ST_CombinedModel(PerturbationModel):
         """Training step for SE+ST combined model."""
         # Forward pass
         predictions = self.forward(batch, padded=padded)
-        
+
         # Compute loss
         target = batch["pert_cell_emb"]
-        
+
+        # Flatten target if it's 3D (same as we did for input)
+        if len(target.shape) == 3:
+            target = target.reshape(-1, target.shape[-1])
+
+        print(f"\n=== Training Step DEBUG ===")
+        print(f"predictions shape: {predictions.shape}")
+        print(f"target shape: {target.shape}")
+        print(f"output_dim: {self.output_dim}")
+        print(f"st_cell_set_len: {self.st_cell_set_len}")
+
         if padded:
             predictions = predictions.reshape(-1, self.st_cell_set_len, self.output_dim)
             target = target.reshape(-1, self.st_cell_set_len, self.output_dim)
+            print(f"After reshape:")
+            print(f"  predictions: {predictions.shape}")
+            print(f"  target: {target.shape}")
+            print(f"=== End Training Debug ===\n")
         else:
             predictions = predictions.reshape(1, -1, self.output_dim)
             target = target.reshape(1, -1, self.output_dim)
@@ -287,10 +301,14 @@ class SE_ST_CombinedModel(PerturbationModel):
         """Validation step for SE+ST combined model."""
         # Forward pass
         predictions = self.forward(batch, padded=padded)
-        
+
         # Compute loss
         target = batch["pert_cell_emb"]
-        
+
+        # Flatten target if it's 3D (same as we did for input)
+        if len(target.shape) == 3:
+            target = target.reshape(-1, target.shape[-1])
+
         if padded:
             predictions = predictions.reshape(-1, self.st_cell_set_len, self.output_dim)
             target = target.reshape(-1, self.st_cell_set_len, self.output_dim)
