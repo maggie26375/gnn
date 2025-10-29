@@ -54,6 +54,7 @@ def main():
     parser.add_argument("--max_steps", type=int, default=80000)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--num_workers", type=int, default=4)
+    parser.add_argument("--disable_early_stopping", action="store_true", help="Disable early stopping")
 
     # Data split arguments (for auto-splitting train data into train/val/test)
     parser.add_argument("--val_split", type=float, default=0.0, help="Fraction of train data to use for validation (0.0-1.0)")
@@ -150,6 +151,32 @@ def main():
 
     # 5. Setup trainer
     logger.info("Setting up trainer...")
+
+    # Setup callbacks
+    callbacks = [
+        ModelCheckpoint(
+            dirpath="checkpoints",
+            filename="gnn-{epoch:02d}-{val_loss:.2f}",
+            save_top_k=3,
+            monitor="val_loss",
+            mode="min",
+            save_last=True,
+        ),
+    ]
+
+    # Add early stopping if not disabled
+    if not args.disable_early_stopping:
+        callbacks.append(
+            EarlyStopping(
+                monitor="val_loss",
+                patience=10,
+                mode="min",
+            )
+        )
+        logger.info("Early stopping enabled (patience=10)")
+    else:
+        logger.info("Early stopping DISABLED - will train for full epochs/steps")
+
     trainer = Trainer(
         max_epochs=args.max_epochs,
         max_steps=args.max_steps,
@@ -158,21 +185,7 @@ def main():
         precision="16-mixed",
         devices=1,
         accelerator="gpu",
-        callbacks=[
-            ModelCheckpoint(
-                dirpath="checkpoints",
-                filename="gnn-{epoch:02d}-{val_loss:.2f}",
-                save_top_k=3,
-                monitor="val_loss",
-                mode="min",
-                save_last=True,
-            ),
-            EarlyStopping(
-                monitor="val_loss",
-                patience=10,
-                mode="min",
-            ),
-        ],
+        callbacks=callbacks,
         logger=TensorBoardLogger(
             save_dir="logs",
             name="gnn_experiment",
