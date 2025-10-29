@@ -206,16 +206,25 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
         Apply GNN to each cell's gene expression.
 
         Args:
-            cell_states: Cell state embeddings [batch_size * num_cells, hidden_dim]
+            cell_states: Cell state embeddings [batch_size, seq_len, hidden_dim] or [batch_size, hidden_dim]
             perturbed_gene_names: List of perturbed gene names
 
         Returns:
-            GNN-processed cell states [batch_size * num_cells, st_hidden_dim]
+            GNN-processed cell states [batch_size, seq_len, st_hidden_dim] or [batch_size, st_hidden_dim]
         """
         if not self.use_gnn or self.gene_network_edge_index is None:
             return cell_states
 
-        batch_size = cell_states.shape[0]
+        # Handle both 2D and 3D inputs
+        original_shape = cell_states.shape
+        if len(original_shape) == 3:
+            # [batch, seq, hidden] -> [batch*seq, hidden]
+            batch_size, seq_len, hidden_dim = original_shape
+            cell_states = cell_states.reshape(-1, hidden_dim)
+        else:
+            batch_size = cell_states.shape[0]
+            seq_len = None
+
         device = cell_states.device
 
         # Move gene network to device
@@ -225,7 +234,7 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
         # Process each cell
         processed_cells = []
 
-        for i in range(batch_size):
+        for i in range(cell_states.shape[0]):
             cell_state = cell_states[i]  # [hidden_dim]
 
             # Optionally zero out perturbed genes
@@ -256,7 +265,11 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
 
             processed_cells.append(projected)
 
-        processed_cells = torch.stack(processed_cells)  # [batch_size, st_hidden_dim]
+        processed_cells = torch.stack(processed_cells)  # [batch*seq or batch, st_hidden_dim]
+
+        # Restore original shape if needed
+        if seq_len is not None:
+            processed_cells = processed_cells.reshape(batch_size, seq_len, -1)
 
         return processed_cells
 
