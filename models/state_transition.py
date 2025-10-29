@@ -339,20 +339,20 @@ class StateTransitionPerturbationModel(PerturbationModel):
         The `padded` argument here is set to True if the batch is padded. Otherwise, we
         expect a single batch, so that sentences can vary in length across batches.
         """
-        # Debug logging
-        print(f"\n=== ST Model Forward DEBUG ===")
-        print(f"Input shapes:")
-        print(f"  pert_emb: {batch['pert_emb'].shape}")
-        print(f"  ctrl_cell_emb: {batch['ctrl_cell_emb'].shape}")
-        print(f"  padded={padded}, cell_sentence_len={self.cell_sentence_len}")
-        print(f"  self.pert_dim={self.pert_dim}, self.input_dim={self.input_dim}")
+        # Debug logging - commented out for cleaner output
+        # print(f"\n=== ST Model Forward DEBUG ===")
+        # print(f"Input shapes:")
+        # print(f"  pert_emb: {batch['pert_emb'].shape}")
+        # print(f"  ctrl_cell_emb: {batch['ctrl_cell_emb'].shape}")
+        # print(f"  padded={padded}, cell_sentence_len={self.cell_sentence_len}")
+        # print(f"  self.pert_dim={self.pert_dim}, self.input_dim={self.input_dim}")
 
         if padded:
             pert = batch["pert_emb"].reshape(-1, self.cell_sentence_len, self.pert_dim)
             basal = batch["ctrl_cell_emb"].reshape(-1, self.cell_sentence_len, self.input_dim)
-            print(f"After reshape:")
-            print(f"  pert: {pert.shape}")
-            print(f"  basal: {basal.shape}")
+            # print(f"After reshape:")
+            # print(f"  pert: {pert.shape}")
+            # print(f"  basal: {basal.shape}")
         else:
             # we are inferencing on a single batch, so accept variable length sentences
             pert = batch["pert_emb"].reshape(1, -1, self.pert_dim)
@@ -363,10 +363,10 @@ class StateTransitionPerturbationModel(PerturbationModel):
         pert_embedding = self.encode_perturbation(pert)
         control_cells = self.encode_basal_expression(basal)
 
-        print(f"After encoding:")
-        print(f"  pert_embedding: {pert_embedding.shape}")
-        print(f"  control_cells: {control_cells.shape}")
-        print(f"=== End ST Debug ===\n")
+        # print(f"After encoding:")
+        # print(f"  pert_embedding: {pert_embedding.shape}")
+        # print(f"  control_cells: {control_cells.shape}")
+        # print(f"=== End ST Debug ===\n")
 
         # Add encodings in input_dim space, then project to hidden_dim
         combined_input = pert_embedding + control_cells  # Shape: [B, S, hidden_dim]

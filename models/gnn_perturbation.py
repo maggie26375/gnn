@@ -278,10 +278,11 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
         Returns:
             Predictions [B*S, output_dim]
         """
-        print(f"\n=== GNN Forward Pass DEBUG ===")
-        print(f"Input batch shapes:")
-        print(f"  ctrl_cell_emb: {batch['ctrl_cell_emb'].shape}")
-        print(f"  pert_emb: {batch['pert_emb'].shape}")
+        # Debug prints - comment out for cleaner output
+        # print(f"\n=== GNN Forward Pass DEBUG ===")
+        # print(f"Input batch shapes:")
+        # print(f"  ctrl_cell_emb: {batch['ctrl_cell_emb'].shape}")
+        # print(f"  pert_emb: {batch['pert_emb'].shape}")
 
         # Handle both 3D inputs - flatten to 2D for processing
         # Save original shape to know if we need to reshape back
@@ -302,9 +303,9 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
         else:
             pert_emb_2d = batch["pert_emb"]
 
-        print(f"After flattening to 2D:")
-        print(f"  ctrl_cell_emb: {ctrl_cell_emb_2d.shape}")
-        print(f"  pert_emb: {pert_emb_2d.shape}")
+        # print(f"After flattening to 2D:")
+        # print(f"  ctrl_cell_emb: {ctrl_cell_emb_2d.shape}")
+        # print(f"  pert_emb: {pert_emb_2d.shape}")
 
         # Fix pert_emb dimension if needed
         # If pert_emb has wrong dimension (e.g., 5120 instead of 1280), take only the needed part
@@ -312,36 +313,36 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
         actual_pert_dim = pert_emb_2d.shape[-1]  # Currently 5120
 
         if actual_pert_dim != expected_pert_dim:
-            print(f"WARNING: pert_emb dimension mismatch!")
-            print(f"  Expected: {expected_pert_dim}, Got: {actual_pert_dim}")
+            # print(f"WARNING: pert_emb dimension mismatch!")
+            # print(f"  Expected: {expected_pert_dim}, Got: {actual_pert_dim}")
 
             if actual_pert_dim % expected_pert_dim == 0:
                 # Dimension is a multiple - reshape and average
                 num_copies = actual_pert_dim // expected_pert_dim
-                print(f"  Appears to be {num_copies} copies concatenated")
-                print(f"  Reshaping and averaging...")
+                # print(f"  Appears to be {num_copies} copies concatenated")
+                # print(f"  Reshaping and averaging...")
 
                 # Reshape [batch, actual_dim] → [batch, num_copies, expected_dim]
                 pert_emb_reshaped = pert_emb_2d.reshape(-1, num_copies, expected_pert_dim)
                 # Average across copies
                 pert_emb_2d = pert_emb_reshaped.mean(dim=1)
-                print(f"  After averaging: {pert_emb_2d.shape}")
+                # print(f"  After averaging: {pert_emb_2d.shape}")
             else:
                 # Just take the first expected_pert_dim dimensions
-                print(f"  Taking first {expected_pert_dim} dimensions")
+                # print(f"  Taking first {expected_pert_dim} dimensions")
                 pert_emb_2d = pert_emb_2d[:, :expected_pert_dim]
-                print(f"  After slicing: {pert_emb_2d.shape}")
+                # print(f"  After slicing: {pert_emb_2d.shape}")
 
         # 1. SE Encoder: genes → cell state
         cell_states = self.encode_cells_to_state(ctrl_cell_emb_2d)  # [B*S, state_dim]
 
-        print(f"After SE encoding: {cell_states.shape}")
+        # print(f"After SE encoding: {cell_states.shape}")
 
         # 2. GNN: Propagate through gene network
         if self.use_gnn:
             perturbed_genes = batch.get("perturbed_gene_names", None)
             cell_states = self.apply_gnn_to_cells(cell_states, perturbed_genes)
-            print(f"After GNN processing: {cell_states.shape}")
+            # print(f"After GNN processing: {cell_states.shape}")
 
         # 3. ST Model: Transformer + Decoder
         # Create new batch with processed cell states (keep as 2D)
@@ -349,12 +350,12 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
         st_batch["ctrl_cell_emb"] = cell_states
         st_batch["pert_emb"] = pert_emb_2d  # Use flattened pert_emb
 
-        print(f"Passing to ST model:")
-        print(f"  ctrl_cell_emb: {st_batch['ctrl_cell_emb'].shape}")
-        print(f"  pert_emb: {st_batch['pert_emb'].shape}")
-        print(f"  padded={padded}, cell_sentence_len={self.st_cell_set_len}")
-        print(f"  ST model input_dim={self.st_model.input_dim}")
-        print(f"=== End GNN Debug ===\n")
+        # print(f"Passing to ST model:")
+        # print(f"  ctrl_cell_emb: {st_batch['ctrl_cell_emb'].shape}")
+        # print(f"  pert_emb: {st_batch['pert_emb'].shape}")
+        # print(f"  padded={padded}, cell_sentence_len={self.st_cell_set_len}")
+        # print(f"  ST model input_dim={self.st_model.input_dim}")
+        # print(f"=== End GNN Debug ===\n")
 
         predictions = self.st_model.forward(st_batch, padded=padded)
 
