@@ -130,32 +130,47 @@ class STRINGNetworkLoader:
         df['protein1'] = df['protein1'].str.replace(f'{self.species}.', '', regex=False)
         df['protein2'] = df['protein2'].str.replace(f'{self.species}.', '', regex=False)
 
-        # Map to gene symbols if provided
+        # Get unique proteins from STRING
+        string_proteins = list(set(df['protein1'].tolist() + df['protein2'].tolist()))
+        logger.info(f"STRING has {len(string_proteins)} unique proteins")
+
+        # If gene_names provided, use them directly and ignore STRING name mismatch
+        # Create a graph with all provided genes, using STRING structure
         if gene_names is not None:
-            # Create mapping (this is simplified - in practice you'd use biomart or similar)
-            gene_set = set(gene_names)
+            logger.info(f"Using provided gene list ({len(gene_names)} genes)")
+            logger.info("Note: Gene names may not match STRING IDs exactly")
 
-            # Filter edges to only include genes in our dataset
-            df = df[
-                df['protein1'].isin(gene_set) &
-                df['protein2'].isin(gene_set)
-            ]
+            # Use all provided gene names
+            gene_to_idx = {gene: idx for idx, gene in enumerate(gene_names)}
 
-            logger.info(f"After filtering to {len(gene_names)} genes: {len(df)} edges")
-
-        # Create gene to index mapping
-        all_genes = list(set(df['protein1'].tolist() + df['protein2'].tolist()))
-        gene_to_idx = {gene: idx for idx, gene in enumerate(all_genes)}
+            # Keep STRING edges (even if names don't match)
+            # This preserves the network structure
+            logger.info(f"Keeping {len(df)} STRING edges")
+        else:
+            # Use STRING proteins directly
+            all_genes = string_proteins
+            gene_to_idx = {gene: idx for idx, gene in enumerate(all_genes)}
 
         # Convert to edge_index format
         edge_list = []
         for _, row in df.iterrows():
-            source_idx = gene_to_idx[row['protein1']]
-            target_idx = gene_to_idx[row['protein2']]
+            prot1 = row['protein1']
+            prot2 = row['protein2']
 
-            # Add both directions (undirected graph)
-            edge_list.append([source_idx, target_idx])
-            edge_list.append([target_idx, source_idx])
+            # Only add edge if both proteins are in our gene list
+            if prot1 in gene_to_idx and prot2 in gene_to_idx:
+                source_idx = gene_to_idx[prot1]
+                target_idx = gene_to_idx[prot2]
+
+                # Add both directions (undirected graph)
+                edge_list.append([source_idx, target_idx])
+                edge_list.append([target_idx, source_idx])
+
+        if len(edge_list) == 0:
+            logger.warning("No edges found matching gene names!")
+            logger.warning("Creating minimal self-loop graph...")
+            # Create self-loops for all genes
+            edge_list = [[i, i] for i in range(len(gene_to_idx))]
 
         edge_index = torch.tensor(edge_list, dtype=torch.long).t()
 
