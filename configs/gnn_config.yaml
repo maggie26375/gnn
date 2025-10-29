@@ -1,0 +1,79 @@
+# GNN Perturbation Model Configuration
+
+# Model configuration
+model:
+  _target_: gnn.models.gnn_perturbation.GNN_PerturbationModel
+
+  # Basic parameters
+  input_dim: 18080
+  hidden_dim: 512
+  output_dim: 512
+  pert_dim: 1280
+  st_hidden_dim: 512
+  st_cell_set_len: 128
+  freeze_se_model: true
+
+  # SE model parameters
+  se_model_path: "SE-600M"
+  se_checkpoint_path: "SE-600M/se600m_epoch15.ckpt"
+  se_embed_key: "X_state"
+
+  # GNN parameters
+  use_gnn: true
+  gnn_hidden_dim: 512
+  gnn_layers: 2
+  gnn_type: "gcn"  # Options: "gcn", "gat", "sage"
+  gnn_dropout: 0.1
+
+  # STRING network parameters
+  string_confidence: 0.4  # Confidence threshold for STRING edges (0-1)
+
+  # Training parameters
+  lr: 1e-4
+  batch_size: 16
+  max_epochs: 100
+
+# Data configuration
+data:
+  data_dir: "/data"
+  toml_config_path: "/data/starter.toml"
+  perturbation_features_file: "/data/ESM2_pert_features.pt"
+  batch_size: 16
+  cell_sentence_len: 128
+  num_workers: 4
+
+# Training configuration
+training:
+  max_epochs: 100
+  max_steps: 80000
+  batch_size: 16
+  val_check_interval: 100
+  gradient_clip_val: 1.0
+  precision: 16
+
+  # Optimizer configuration
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 1e-4
+    weight_decay: 1e-5
+
+  # Learning rate scheduler
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+    T_max: 100
+    eta_min: 1e-6
+
+# Logging configuration
+logging:
+  level: "INFO"
+  log_dir: "logs"
+  log_interval: 100
+
+# Checkpoint configuration
+checkpoint:
+  save_dir: "checkpoints"
+  save_top_k: 3
+  monitor: "val_loss"
+  mode: "min"
+  save_last: true
+  save_on_train_epoch_end: false

@@ -1,0 +1,128 @@
+# Hydra Configuration
+defaults:
+  - _self_
+
+# THIS IS CRITICAL: Disable struct mode to allow arbitrary config overrides
+# Without this, Hydra won't allow overriding nested configs like model.kwargs.se_model_path
+_target_: null  # Make this a regular DictConfig, not a structured config
+
+# Disable struct mode to allow config overrides
+hydra:
+  job:
+    chdir: false  # Don't change working directory
+  run:
+    dir: ${output_dir}/${name}  # Output directory for hydra logs
+  
+# Experiment Configuration
+name: se_st_experiment
+output_dir: ./outputs
+accelerator: auto  # auto, gpu, cpu
+devices: auto  # Number of devices or "auto"
+save_top_k: 3  # Save top k checkpoints
+
+# Training Configuration
+training:
+  max_steps: 40000
+  max_epochs: null  # If set, will override max_steps
+  batch_size: 16
+  lr: 1e-4
+  ckpt_every_n_steps: 20000
+  log_every_n_steps: 100
+  val_check_interval: 1000
+  precision: "16-mixed"  # 16-mixed, 32, bf16-mixed
+  gradient_clip_val: null
+  accumulate_grad_batches: 1
+  early_stopping: false
+  patience: 10
+
+# Data Configuration
+data:
+  kwargs:
+    toml_config_path: null  # Path to data TOML config
+    num_workers: 8
+    batch_col: batch_var
+    pert_col: target_gene
+    cell_type_key: cell_type
+    control_pert: non-targeting
+    perturbation_features_file: null  # Path to perturbation features file
+
+# Logging Configuration
+wandb:
+  enabled: false
+  project: se-st-combined
+  entity: null
+  tags: []
+
+# Model Configuration
+model:
+  name: se_st_combined
+  checkpoint: null
+  
+  kwargs:
+    # SE Model Configuration
+    se_model_path: "/large_storage/ctc/userspace/aadduri/SE-600M"  # Path to SE model directory
+    se_checkpoint_path: "/large_storage/ctc/userspace/aadduri/SE-600M/se600m_epoch15.ckpt"  # Path to SE checkpoint
+    se_embed_key: "X_state"  # Key for SE embeddings
+    freeze_se_model: true  # Whether to freeze SE model parameters
+    
+    # ST Model Configuration
+    st_hidden_dim: 672  # Hidden dimension for ST model
+    st_cell_set_len: 128  # Cell sequence length for ST model
+    predict_residual: true  # Whether to predict residual
+    distributional_loss: energy  # Loss function (energy, sinkhorn, mse)
+    transformer_backbone_key: llama  # Transformer backbone (llama, gpt2)
+    
+    # Training Configuration
+    n_encoder_layers: 4  # Number of encoder layers in ST model
+    n_decoder_layers: 4  # Number of decoder layers in ST model
+    dropout: 0.1  # Dropout rate
+    lr: 1e-4  # Learning rate
+    
+    # Advanced Options
+    blur: 0.05  # Blur parameter for energy loss
+    confidence_head: false  # Whether to use confidence head
+    softplus: true  # Whether to use softplus activation
+    freeze_pert_backbone: false  # Whether to freeze perturbation backbone
+    transformer_decoder: false  # Whether to use transformer decoder
+    finetune_vci_decoder: false  # Whether to finetune VCI decoder
+    residual_decoder: false  # Whether to use residual decoder
+    batch_encoder: false  # Whether to use batch encoder
+    nb_decoder: false  # Whether to use negative binomial decoder
+    mask_attn: false  # Whether to mask attention
+    use_effect_gating_token: false  # Whether to use effect gating token
+    use_basal_projection: false  # Whether to use basal projection
+    gene_decoder_bool: false  # Whether to use gene decoder
+    init_from: null  # Initial checkpoint to start from
+    
+    # Transformer Backbone Configuration
+    transformer_backbone_kwargs:
+      max_position_embeddings: ${model.kwargs.st_cell_set_len}
+      hidden_size: ${model.kwargs.st_hidden_dim}
+      intermediate_size: 2688  # 4 * hidden_size for llama
+      num_hidden_layers: 4
+      num_attention_heads: 8
+      num_key_value_heads: 8
+      head_dim: 84
+      use_cache: false
+      attention_dropout: 0.0
+      hidden_dropout: 0.0
+      layer_norm_eps: 1e-6
+      pad_token_id: 0
+      bos_token_id: 1
+      eos_token_id: 2
+      tie_word_embeddings: false
+      rotary_dim: 0
+      use_rotary_embeddings: false
+    
+    # LoRA Configuration
+    lora:
+      enable: false
+      r: 16
+      alpha: 32
+      dropout: 0.05
+      bias: none
+      target: auto
+      adapt_mlp: false
+      task_type: FEATURE_EXTRACTION
+      merge_on_eval: false
+
