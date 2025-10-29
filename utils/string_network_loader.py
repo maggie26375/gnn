@@ -13,6 +13,10 @@ import torch
 import numpy as np
 from typing import Dict, Tuple, Optional, List
 import logging
+import urllib3
+
+# Disable SSL warnings
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +82,8 @@ class STRINGNetworkLoader:
         url = f"{self.base_url}/protein.links.{self.version}/{filename}"
         logger.info(f"Downloading STRING network from {url}")
 
-        response = requests.get(url, stream=True)
+        # Disable SSL verification to avoid certificate issues
+        response = requests.get(url, stream=True, verify=False)
         response.raise_for_status()
 
         with open(filepath, 'wb') as f:
