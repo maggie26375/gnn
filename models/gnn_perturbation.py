@@ -278,36 +278,42 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
         Returns:
             Predictions [B*S, output_dim]
         """
-        logger.debug(f"GNN_PerturbationModel.forward - Input batch shapes:")
-        logger.debug(f"  ctrl_cell_emb: {batch['ctrl_cell_emb'].shape}")
-        logger.debug(f"  pert_emb: {batch['pert_emb'].shape}")
+        print(f"\n=== GNN Forward Pass DEBUG ===")
+        print(f"Input batch shapes:")
+        print(f"  ctrl_cell_emb: {batch['ctrl_cell_emb'].shape}")
+        print(f"  pert_emb: {batch['pert_emb'].shape}")
 
         # 1. SE Encoder: genes → cell state
         cell_states = self.encode_cells_to_state(
             batch["ctrl_cell_emb"]
         )  # Should be [B*S, hidden_dim]
 
-        logger.debug(f"  After SE encoding: cell_states shape = {cell_states.shape}")
+        print(f"After SE encoding: {cell_states.shape}")
 
         # If cell_states is 3D, flatten it to 2D for GNN processing
         original_shape = cell_states.shape
         if len(original_shape) == 3:
             # [B, S, hidden_dim] → [B*S, hidden_dim]
             cell_states = cell_states.reshape(-1, original_shape[-1])
-            logger.debug(f"  Flattened 3D to 2D: {cell_states.shape}")
+            print(f"Flattened 3D to 2D: {cell_states.shape}")
 
         # 2. GNN: Propagate through gene network
         if self.use_gnn:
             perturbed_genes = batch.get("perturbed_gene_names", None)
             cell_states = self.apply_gnn_to_cells(cell_states, perturbed_genes)
-            logger.debug(f"  After GNN processing: cell_states shape = {cell_states.shape}")
+            print(f"After GNN processing: {cell_states.shape}")
 
         # 3. ST Model: Transformer + Decoder
         # Create new batch with processed cell states
         st_batch = batch.copy()
         st_batch["ctrl_cell_emb"] = cell_states
 
-        logger.debug(f"  Passing to ST model - ctrl_cell_emb: {st_batch['ctrl_cell_emb'].shape}, pert_emb: {st_batch['pert_emb'].shape}")
+        print(f"Passing to ST model:")
+        print(f"  ctrl_cell_emb: {st_batch['ctrl_cell_emb'].shape}")
+        print(f"  pert_emb: {st_batch['pert_emb'].shape}")
+        print(f"  padded={padded}, cell_sentence_len={self.st_cell_set_len}")
+        print(f"  ST model input_dim={self.st_model.input_dim}")
+        print(f"=== End GNN Debug ===\n")
 
         predictions = self.st_model.forward(st_batch, padded=padded)
 
