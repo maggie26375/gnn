@@ -306,6 +306,32 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
         print(f"  ctrl_cell_emb: {ctrl_cell_emb_2d.shape}")
         print(f"  pert_emb: {pert_emb_2d.shape}")
 
+        # Fix pert_emb dimension if needed
+        # If pert_emb has wrong dimension (e.g., 5120 instead of 1280), take only the needed part
+        expected_pert_dim = self.pert_dim  # Should be 1280
+        actual_pert_dim = pert_emb_2d.shape[-1]  # Currently 5120
+
+        if actual_pert_dim != expected_pert_dim:
+            print(f"WARNING: pert_emb dimension mismatch!")
+            print(f"  Expected: {expected_pert_dim}, Got: {actual_pert_dim}")
+
+            if actual_pert_dim % expected_pert_dim == 0:
+                # Dimension is a multiple - reshape and average
+                num_copies = actual_pert_dim // expected_pert_dim
+                print(f"  Appears to be {num_copies} copies concatenated")
+                print(f"  Reshaping and averaging...")
+
+                # Reshape [batch, actual_dim] → [batch, num_copies, expected_dim]
+                pert_emb_reshaped = pert_emb_2d.reshape(-1, num_copies, expected_pert_dim)
+                # Average across copies
+                pert_emb_2d = pert_emb_reshaped.mean(dim=1)
+                print(f"  After averaging: {pert_emb_2d.shape}")
+            else:
+                # Just take the first expected_pert_dim dimensions
+                print(f"  Taking first {expected_pert_dim} dimensions")
+                pert_emb_2d = pert_emb_2d[:, :expected_pert_dim]
+                print(f"  After slicing: {pert_emb_2d.shape}")
+
         # 1. SE Encoder: genes → cell state
         cell_states = self.encode_cells_to_state(ctrl_cell_emb_2d)  # [B*S, state_dim]
 
