@@ -22,7 +22,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from se_st_combined.models.se_st_combined import SE_ST_CombinedModel
+from gnn.models.se_st_combined import SE_ST_CombinedModel
 
 logging.basicConfig(
     level=logging.DEBUG,  # Changed to DEBUG to see detailed logs

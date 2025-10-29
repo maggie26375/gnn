@@ -2,7 +2,7 @@
 SE+ST Combined Model Data Utilities
 """
 
-from se_st_combined.data.perturbation_dataset import (
+from gnn.data.perturbation_dataset import (
     PerturbationDataset,
     collate_perturbation_batch,
 )

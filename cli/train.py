@@ -17,11 +17,11 @@ from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import WandbLogger, TensorBoardLogger
 
 # Import model classes
-from se_st_combined.models.se_st_combined import SE_ST_CombinedModel
-from se_st_combined.models.state_transition import StateTransitionPerturbationModel
+from gnn.models.se_st_combined import SE_ST_CombinedModel
+from gnn.models.state_transition import StateTransitionPerturbationModel
 
 # Import data utilities
-from se_st_combined.data.perturbation_dataset import PerturbationDataset, collate_perturbation_batch
+from gnn.data.perturbation_dataset import PerturbationDataset, collate_perturbation_batch
 
 # Configure logging
 logging.basicConfig(

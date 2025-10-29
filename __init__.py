@@ -11,8 +11,8 @@ This package provides:
 4. Configuration files
 
 Usage:
-    from se_st_combined.models.se_st_combined import SE_ST_CombinedModel
-    from se_st_combined.utils.se_st_utils import load_se_st_model
+    from gnn.models.se_st_combined import SE_ST_CombinedModel
+    from gnn.utils.se_st_utils import load_se_st_model
 """
 
 __version__ = "0.1.0"
@@ -21,10 +21,10 @@ __email__ = "your-email@example.com"
 
 # Use lazy imports to avoid loading all dependencies at import time
 # Users can import specific modules as needed:
-#   from se_st_combined.models.se_st_combined import SE_ST_CombinedModel
-#   from se_st_combined.models.state_transition import StateTransitionPerturbationModel
-#   from se_st_combined.models.decoders import FinetuneVCICountsDecoder
-#   from se_st_combined.models.decoders_nb import NBDecoder
+#   from gnn.models.se_st_combined import SE_ST_CombinedModel
+#   from gnn.models.state_transition import StateTransitionPerturbationModel
+#   from gnn.models.decoders import FinetuneVCICountsDecoder
+#   from gnn.models.decoders_nb import NBDecoder
 
 __all__ = [
     "__version__",

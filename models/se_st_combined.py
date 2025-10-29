@@ -112,7 +112,7 @@ class SE_ST_CombinedModel(PerturbationModel):
         try:
             # Note: This requires the SE model to be available
             # You may need to install the SE model separately or provide the inference module
-            from se_st_combined.utils.se_inference import SEInference
+            from gnn.utils.se_inference import SEInference
             
             # Load SE model
             # Use input_dim (gene dimension) to create SE model
