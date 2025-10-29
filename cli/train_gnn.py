@@ -14,11 +14,11 @@ from pathlib import Path
 import sys
 
 # Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from models.gnn_perturbation import GNN_PerturbationModel
-from utils.string_network_loader import load_string_network_for_hvgs
-from cli.train import SE_ST_DataModule  # Reuse existing data module
+from gnn.models.gnn_perturbation import GNN_PerturbationModel
+from gnn.utils.string_network_loader import load_string_network_for_hvgs
+from gnn.cli.train import SE_ST_DataModule  # Reuse existing data module
 
 logger = logging.getLogger(__name__)
 
