@@ -281,7 +281,13 @@ class GNN_PerturbationModel(SE_ST_CombinedModel):
         # 1. SE Encoder: genes → cell state
         cell_states = self.encode_cells_to_state(
             batch["ctrl_cell_emb"]
-        )  # [B*S, hidden_dim]
+        )  # Should be [B*S, hidden_dim]
+
+        # If cell_states is 3D, flatten it to 2D for GNN processing
+        original_shape = cell_states.shape
+        if len(original_shape) == 3:
+            # [B, S, hidden_dim] → [B*S, hidden_dim]
+            cell_states = cell_states.reshape(-1, original_shape[-1])
 
         # 2. GNN: Propagate through gene network
         if self.use_gnn:
