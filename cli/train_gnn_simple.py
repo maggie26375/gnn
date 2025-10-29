@@ -75,11 +75,16 @@ def main():
     hvg_gene_names = load_gene_names(args.data_dir)
     logger.info(f"Loaded {len(hvg_gene_names)} genes")
 
-    # 2. Load STRING network
+    # 2. Load STRING network (REQUIRED for GNN mode)
     edge_index, gene_to_idx = None, None
-    if args.use_gnn and len(hvg_gene_names) > 0:
+    if args.use_gnn:
+        if len(hvg_gene_names) == 0:
+            logger.error("❌ Cannot use GNN: No gene names loaded from data!")
+            logger.error("Please check that h5ad files exist in data_dir")
+            raise ValueError("No gene names available for STRING network loading")
+
+        logger.info("Loading STRING network...")
         try:
-            logger.info("Loading STRING network...")
             edge_index, gene_to_idx = load_string_network_for_hvgs(
                 hvg_gene_names=hvg_gene_names,
                 cache_dir=f"{args.data_dir}/string_cache",
@@ -87,9 +92,9 @@ def main():
             )
             logger.info(f"✅ Loaded STRING network: {edge_index.shape[1]} edges, {len(gene_to_idx)} genes")
         except Exception as e:
-            logger.warning(f"⚠️ Failed to load STRING network: {e}")
-            logger.warning("Falling back to SE-ST mode (no GNN)")
-            args.use_gnn = False
+            logger.error(f"❌ Failed to load STRING network: {e}")
+            logger.error("GNN mode requires STRING network. Training aborted.")
+            raise RuntimeError(f"STRING network loading failed: {e}") from e
 
     # 3. Create model
     logger.info("Creating GNN perturbation model...")

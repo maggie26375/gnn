@@ -68,18 +68,18 @@ def train_gnn_model(
     hvg_gene_names = load_hvg_names_from_data(data_dir)
 
     if use_gnn:
-        try:
-            edge_index, gene_to_idx = load_string_network_for_hvgs(
-                hvg_gene_names=hvg_gene_names,
-                cache_dir=f"{data_dir}/string_cache",
-                confidence_threshold=string_confidence,
-            )
-            logger.info(f"Loaded STRING network: {edge_index.shape[1]} edges, {len(gene_to_idx)} genes")
-        except Exception as e:
-            logger.warning(f"Failed to load STRING network: {e}. Falling back to SE-ST mode.")
-            use_gnn = False
-            edge_index = None
-            gene_to_idx = None
+        if len(hvg_gene_names) == 0:
+            logger.error("❌ Cannot use GNN: No gene names loaded from data!")
+            logger.error("Please check that h5ad files exist in data_dir")
+            raise ValueError("No gene names available for STRING network loading")
+
+        logger.info("Loading STRING network...")
+        edge_index, gene_to_idx = load_string_network_for_hvgs(
+            hvg_gene_names=hvg_gene_names,
+            cache_dir=f"{data_dir}/string_cache",
+            confidence_threshold=string_confidence,
+        )
+        logger.info(f"✅ Loaded STRING network: {edge_index.shape[1]} edges, {len(gene_to_idx)} genes")
     else:
         edge_index = None
         gene_to_idx = None
