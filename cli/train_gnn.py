@@ -174,9 +174,11 @@ def load_hvg_names_from_data(data_dir: str) -> list:
     """
     import anndata as ad
     import os
+    import glob
 
     # Try to load from one of the h5ad files
     possible_files = [
+        f"{data_dir}/competition_val_template.h5ad",
         f"{data_dir}/competition_train.h5ad",
         f"{data_dir}/k562.h5ad",
         f"{data_dir}/jurkat.h5ad",
@@ -187,10 +189,22 @@ def load_hvg_names_from_data(data_dir: str) -> list:
             logger.info(f"Loading gene names from {filepath}")
             adata = ad.read_h5ad(filepath)
             gene_names = adata.var_names.tolist()
-            logger.info(f"Loaded {len(gene_names)} gene names")
+            logger.info(f"✅ Loaded {len(gene_names)} gene names")
             return gene_names
 
-    logger.warning("No data file found to extract gene names. Using empty list.")
+    # If none found, search for any h5ad file
+    logger.info(f"Searching for any h5ad files in {data_dir}...")
+    h5ad_files = glob.glob(os.path.join(data_dir, "*.h5ad"))
+
+    if len(h5ad_files) > 0:
+        filepath = h5ad_files[0]
+        logger.info(f"Found h5ad file: {filepath}")
+        adata = ad.read_h5ad(filepath)
+        gene_names = adata.var_names.tolist()
+        logger.info(f"✅ Loaded {len(gene_names)} gene names")
+        return gene_names
+
+    logger.error(f"❌ No h5ad files found in {data_dir}")
     return []
 
 
