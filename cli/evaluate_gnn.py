@@ -178,17 +178,42 @@ def evaluate_model(
     # 3. Load model from checkpoint
     logger.info("\n3. Loading model from checkpoint...")
     try:
-        model = GNN_PerturbationModel.load_from_checkpoint(
-            checkpoint_path,
+        # First, create model with same architecture as training
+        model = GNN_PerturbationModel(
+            # Basic
+            input_dim=18080,
+            hidden_dim=512,
+            output_dim=512,
+            pert_dim=1280,
+            # SE
+            se_model_path="SE-600M",
+            se_checkpoint_path="SE-600M/se600m_epoch15.ckpt",
+            freeze_se_model=True,
+            # ST
+            st_hidden_dim=512,
+            st_cell_set_len=128,
+            # GNN
+            use_gnn=True,
             gene_network_edge_index=edge_index,
             gene_to_idx=gene_to_idx,
-            map_location=device,
+            gnn_hidden_dim=128,
+            gnn_layers=3,
+            gnn_type="gcn",
+            gnn_dropout=0.1,
+            # Training
+            lr=1e-4,
         )
+
+        # Then load checkpoint weights
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+        model.load_state_dict(checkpoint['state_dict'])
         model = model.to(device)
         model.eval()
         logger.info("✅ Model loaded successfully")
     except Exception as e:
         logger.error(f"❌ Failed to load model: {e}")
+        import traceback
+        traceback.print_exc()
         raise
 
     # 4. Setup data module
