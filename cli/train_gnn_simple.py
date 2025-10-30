@@ -101,8 +101,18 @@ def main():
             logger.error("GNN mode requires STRING network. Training aborted.")
             raise RuntimeError(f"STRING network loading failed: {e}") from e
 
-    # 3. Create model
-    logger.info("Creating GNN perturbation model...")
+    # 3. Create model with decoder configuration
+    logger.info("Creating GNN perturbation model with gene decoder...")
+
+    # Decoder configuration for state -> gene expression
+    decoder_cfg = {
+        'latent_dim': 512,      # Output dimension from ST model
+        'gene_dim': 18080,      # Number of genes
+        'hidden_dims': [1024, 1024, 512],  # Decoder layers
+        'dropout': 0.1,
+        'residual_decoder': False,
+    }
+
     model = GNN_PerturbationModel(
         # Basic
         input_dim=18080,
@@ -126,6 +136,9 @@ def main():
         gnn_dropout=0.1,
         # Training
         lr=args.lr,
+        # Decoder (NEW!)
+        decoder_cfg=decoder_cfg,
+        gene_decoder_bool=True,
     )
     logger.info(f"✅ Model created (GNN enabled: {args.use_gnn})")
 
