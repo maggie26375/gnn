@@ -204,11 +204,15 @@ def infer_gnn(
             # Forward pass
             pred = model(batch, padded=False)
 
-            # Decode from state space to gene space if needed
-            # Note: predictions are in state embedding space, we may need to decode
-            # For now, we'll save the state embeddings
+            # Decode from state space (512) to gene space (18080)
+            if hasattr(model, 'gene_decoder') and model.gene_decoder is not None:
+                logger.info("Decoding state embeddings to gene expression space...")
+                gene_pred = model.gene_decoder(pred)  # [n_samples, 18080]
+                predictions_list.append(gene_pred.cpu().numpy())
+            else:
+                logger.warning("No gene decoder found! Saving state embeddings (512-dim) instead.")
+                predictions_list.append(pred.cpu().numpy())
 
-            predictions_list.append(pred.cpu().numpy())
             cell_indices.extend(pert_indices[:n_samples])
 
     # 8. Combine predictions
@@ -224,21 +228,31 @@ def infer_gnn(
     adata_out = adata.copy()
 
     # Fill predictions into the corresponding cells
-    # Note: This assumes predictions are in state embedding space (512-dim)
-    # If submission requires gene expression space (18080-dim), additional decoding is needed
+    if all_predictions.shape[1] == adata_out.shape[1]:
+        # Predictions are in gene expression space (18080-dim) - CORRECT!
+        logger.info(f"✅ Predictions are in gene expression space ({all_predictions.shape[1]} genes)")
+        logger.info("Filling predictions into X matrix...")
 
-    if all_predictions.shape[1] != adata_out.shape[1]:
-        logger.warning(f"Prediction dimension ({all_predictions.shape[1]}) != gene dimension ({adata_out.shape[1]})")
-        logger.warning("Predictions are in state embedding space. May need decoder for gene space.")
-        logger.warning("Saving state embeddings for now...")
+        # Initialize X with zeros (for cells we don't predict)
+        import scipy.sparse as sp
+        if sp.issparse(adata_out.X):
+            adata_out.X = adata_out.X.toarray()
 
-        # For now, save as obsm
-        adata_out.obsm['gnn_predictions'] = np.zeros((adata_out.shape[0], all_predictions.shape[1]))
-        adata_out.obsm['gnn_predictions'][cell_indices] = all_predictions
+        # Fill in predictions
+        for i, cell_idx in enumerate(cell_indices):
+            adata_out.X[cell_idx] = all_predictions[i]
+
+        logger.info(f"✅ Filled predictions for {len(cell_indices)} cells")
     else:
-        # If dimensions match, update X
-        adata_out.X = np.zeros_like(adata_out.X)
-        adata_out.X[cell_indices] = all_predictions
+        # Predictions are in state embedding space (512-dim) - NOT IDEAL
+        logger.warning(f"⚠️  Prediction dimension ({all_predictions.shape[1]}) != gene dimension ({adata_out.shape[1]})")
+        logger.warning("Predictions are in state embedding space. Decoder was not used.")
+        logger.warning("Saving state embeddings to obsm['gnn_predictions']...")
+
+        # Save as obsm
+        adata_out.obsm['gnn_predictions'] = np.zeros((adata_out.shape[0], all_predictions.shape[1]))
+        for i, cell_idx in enumerate(cell_indices):
+            adata_out.obsm['gnn_predictions'][cell_idx] = all_predictions[i]
 
     # 10. Save output
     logger.info(f"\n10. Saving predictions to {output_path}...")
