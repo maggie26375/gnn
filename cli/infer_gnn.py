@@ -260,9 +260,9 @@ def main():
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to model checkpoint")
     parser.add_argument("--adata", type=str, required=True, help="Path to competition validation template (.h5ad)")
     parser.add_argument("--output", type=str, required=True, help="Output path for predictions (.h5ad)")
-    parser.add_argument("--pert-features", type=str, default="/data/ESM2_pert_features.pt", help="Perturbation features")
-    parser.add_argument("--data-dir", type=str, default="/data", help="Data directory")
-    parser.add_argument("--batch-size", type=int, default=16, help="Batch size")
+    parser.add_argument("--pert-features", "--perturbation-features", dest="pert_features", type=str, default="/data/ESM2_pert_features.pt", help="Perturbation features")
+    parser.add_argument("--data-dir", dest="data_dir", type=str, default="/data", help="Data directory")
+    parser.add_argument("--batch-size", dest="batch_size", type=int, default=16, help="Batch size")
     parser.add_argument("--device", type=str, default="auto", help="Device (cuda/cpu/auto)")
 
     args = parser.parse_args()
