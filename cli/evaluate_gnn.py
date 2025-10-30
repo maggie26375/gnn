@@ -205,7 +205,7 @@ def evaluate_model(
         )
 
         # Then load checkpoint weights
-        checkpoint = torch.load(checkpoint_path, map_location=device)
+        checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         model.load_state_dict(checkpoint['state_dict'])
         model = model.to(device)
         model.eval()
