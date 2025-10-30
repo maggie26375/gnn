@@ -103,6 +103,15 @@ def infer_gnn(
     # 3. Load model
     logger.info("\n3. Loading trained model...")
     try:
+        # Decoder configuration (must match training config!)
+        decoder_cfg = {
+            'latent_dim': 512,
+            'gene_dim': 18080,
+            'hidden_dims': [1024, 1024, 512],
+            'dropout': 0.1,
+            'residual_decoder': False,
+        }
+
         model = GNN_PerturbationModel(
             # Basic
             input_dim=18080,
@@ -126,6 +135,9 @@ def infer_gnn(
             gnn_dropout=0.1,
             # Training
             lr=1e-4,
+            # Decoder (NEW! - required to load checkpoint with decoder)
+            decoder_cfg=decoder_cfg,
+            gene_decoder_bool=True,
         )
 
         # Load checkpoint weights
